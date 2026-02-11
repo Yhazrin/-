@@ -1,35 +1,36 @@
 import { ActionNode, BehaviorStatus, BehaviorTree, SelectorNode } from '../ai/behaviorTree.js';
+import type { SimulationContext } from '../core/types.js';
 import { normalize, sub, type Vector3 } from '../types/math.js';
 import { EcosystemEntity } from './EcosystemEntity.js';
 
 export class Neutral extends EcosystemEntity {
-  private curiosity = 0.5 + Math.random() * 0.5;
-  private social = 0.3 + Math.random() * 0.4;
+  private socialDrive = 0.4;
 
-  constructor(position: Vector3, generation = 0) {
-    super('neutral', position, generation);
+  constructor(position: Vector3, generation = 0, traits?: { speed: number; efficiency: number; resilience: number }) {
+    super('neutral', position, generation, traits);
   }
 
   protected createBehaviorTree(): BehaviorTree {
     return new BehaviorTree(
       new SelectorNode([
-        new ActionNode((_, ecosystem) => {
-          const nearby = ecosystem.findNearbyEntities(this.position, 8, 'neutral').filter((n) => n.id !== this.id);
-          if (nearby.length > 0 && this.social > 0.5) {
-            const center = nearby.reduce(
-              (acc, n) => ({ x: acc.x + n.position.x, y: 0, z: acc.z + n.position.z }),
-              { x: 0, y: 0, z: 0 },
-            );
-            center.x /= nearby.length;
-            center.z /= nearby.length;
-            this.velocity = normalize(sub(center, this.position));
-            return BehaviorStatus.SUCCESS;
-          }
-          return BehaviorStatus.FAILURE;
+        new ActionNode((_, ctx) => {
+          const mates = ctx.manager.findNearby(this.position, 8, 'neutral').filter((m) => m.id !== this.id);
+          if (!mates.length) return BehaviorStatus.FAILURE;
+          const center = mates.reduce((acc, m) => ({ x: acc.x + m.position.x, y: 0, z: acc.z + m.position.z }), { x: 0, y: 0, z: 0 });
+          center.x /= mates.length;
+          center.z /= mates.length;
+          this.velocity = normalize(sub(center, this.position));
+          this.velocity.x *= this.traits.speed * this.socialDrive * ctx.manager.getHints().neutralSocialBias;
+          this.velocity.z *= this.traits.speed * this.socialDrive * ctx.manager.getHints().neutralSocialBias;
+          return BehaviorStatus.SUCCESS;
         }),
-        new ActionNode(() => {
-          if (Math.random() < this.curiosity * 0.05) {
-            this.velocity = { x: (Math.random() - 0.5) * 0.8, y: 0, z: (Math.random() - 0.5) * 0.8 };
+        new ActionNode((_, ctx) => {
+          if (ctx.random.next() < 0.04) {
+            this.velocity = {
+              x: ctx.random.range(-1, 1) * this.traits.speed,
+              y: 0,
+              z: ctx.random.range(-1, 1) * this.traits.speed,
+            };
           }
           return BehaviorStatus.RUNNING;
         }),
@@ -37,10 +38,14 @@ export class Neutral extends EcosystemEntity {
     );
   }
 
-  reproduce(): Neutral | null {
-    if (this.energy > 70 && this.age > 8) {
-      this.energy -= 35;
-      return new Neutral({ x: this.position.x + (Math.random() - 0.5) * 4, y: 0, z: this.position.z + (Math.random() - 0.5) * 4 }, this.generation + 1);
+  reproduce(ctx: SimulationContext): Neutral | null {
+    if (this.energy > 72 && this.age > 10) {
+      this.energy -= 34;
+      return new Neutral(
+        { x: this.position.x + ctx.random.range(-4, 4), y: 0, z: this.position.z + ctx.random.range(-4, 4) },
+        this.generation + 1,
+        this.mutateTraits(ctx, this.traits),
+      );
     }
     return null;
   }

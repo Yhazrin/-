@@ -1,5 +1,5 @@
+import type { SimulationContext } from '../core/types.js';
 import type { EcosystemEntity } from '../entities/EcosystemEntity.js';
-import type { EcosystemManager } from '../core/EcosystemManager.js';
 
 export enum BehaviorStatus {
   SUCCESS = 'success',
@@ -8,61 +8,48 @@ export enum BehaviorStatus {
 }
 
 export abstract class BehaviorNode {
-  abstract tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus;
+  abstract tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus;
 }
 
 export class SelectorNode extends BehaviorNode {
-  constructor(private readonly children: BehaviorNode[]) {
-    super();
-  }
-
-  tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus {
+  constructor(private readonly children: BehaviorNode[]) { super(); }
+  tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus {
     for (const child of this.children) {
-      const result = child.tick(entity, ecosystem);
-      if (result !== BehaviorStatus.FAILURE) return result;
+      const s = child.tick(entity, context);
+      if (s !== BehaviorStatus.FAILURE) return s;
     }
     return BehaviorStatus.FAILURE;
   }
 }
 
 export class SequenceNode extends BehaviorNode {
-  constructor(private readonly children: BehaviorNode[]) {
-    super();
-  }
-
-  tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus {
+  constructor(private readonly children: BehaviorNode[]) { super(); }
+  tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus {
     for (const child of this.children) {
-      const result = child.tick(entity, ecosystem);
-      if (result !== BehaviorStatus.SUCCESS) return result;
+      const s = child.tick(entity, context);
+      if (s !== BehaviorStatus.SUCCESS) return s;
     }
     return BehaviorStatus.SUCCESS;
   }
 }
 
 export class ConditionNode extends BehaviorNode {
-  constructor(private readonly condition: (entity: EcosystemEntity, ecosystem: EcosystemManager) => boolean) {
-    super();
-  }
-
-  tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus {
-    return this.condition(entity, ecosystem) ? BehaviorStatus.SUCCESS : BehaviorStatus.FAILURE;
+  constructor(private readonly condition: (entity: EcosystemEntity, context: SimulationContext) => boolean) { super(); }
+  tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus {
+    return this.condition(entity, context) ? BehaviorStatus.SUCCESS : BehaviorStatus.FAILURE;
   }
 }
 
 export class ActionNode extends BehaviorNode {
-  constructor(private readonly action: (entity: EcosystemEntity, ecosystem: EcosystemManager) => BehaviorStatus) {
-    super();
-  }
-
-  tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus {
-    return this.action(entity, ecosystem);
+  constructor(private readonly action: (entity: EcosystemEntity, context: SimulationContext) => BehaviorStatus) { super(); }
+  tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus {
+    return this.action(entity, context);
   }
 }
 
 export class BehaviorTree {
   constructor(private readonly root: BehaviorNode) {}
-
-  tick(entity: EcosystemEntity, ecosystem: EcosystemManager): BehaviorStatus {
-    return this.root.tick(entity, ecosystem);
+  tick(entity: EcosystemEntity, context: SimulationContext): BehaviorStatus {
+    return this.root.tick(entity, context);
   }
 }

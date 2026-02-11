@@ -1,32 +1,37 @@
-import { ActionNode, BehaviorStatus, BehaviorTree, SequenceNode } from '../ai/behaviorTree.js';
-import { vec3, type Vector3 } from '../types/math.js';
+import { ActionNode, BehaviorStatus, BehaviorTree } from '../ai/behaviorTree.js';
+import type { SimulationContext } from '../core/types.js';
+import type { Vector3 } from '../types/math.js';
 import { EcosystemEntity } from './EcosystemEntity.js';
 
 export class Plant extends EcosystemEntity {
-  private growthRate = 0.5 + Math.random() * 0.5;
-  private energyProduction = 1 + Math.random() * 0.5;
-
-  constructor(position: Vector3, generation = 0) {
-    super('plant', position, generation);
+  constructor(position: Vector3, generation = 0, traits?: { speed: number; efficiency: number; resilience: number }) {
+    super('plant', position, generation, traits);
   }
 
   protected createBehaviorTree(): BehaviorTree {
     return new BehaviorTree(
-      new SequenceNode([
-        new ActionNode(() => {
-          this.energy = Math.min(100, this.energy + this.energyProduction * 0.1);
-          this.health = Math.min(100, this.health + this.growthRate * 0.1);
-          this.velocity = vec3(0, 0, 0);
-          return BehaviorStatus.SUCCESS;
-        }),
-      ]),
+      new ActionNode((_, ctx) => {
+        const growth = 0.3 * this.traits.efficiency * ctx.environment.plantGrowthMultiplier;
+        this.energy += growth;
+        this.health += 0.2 * this.traits.resilience;
+        this.velocity = { x: 0, y: 0, z: 0 };
+        return BehaviorStatus.SUCCESS;
+      }),
     );
   }
 
-  reproduce(): Plant | null {
-    if (this.energy > 60 && this.age > 5) {
+  reproduce(ctx: SimulationContext): Plant | null {
+    if (this.energy > 65 && this.age > 8) {
       this.energy -= 30;
-      return new Plant({ x: this.position.x + (Math.random() - 0.5) * 5, y: 0, z: this.position.z + (Math.random() - 0.5) * 5 }, this.generation + 1);
+      return new Plant(
+        {
+          x: this.position.x + ctx.random.range(-3, 3),
+          y: 0,
+          z: this.position.z + ctx.random.range(-3, 3),
+        },
+        this.generation + 1,
+        this.mutateTraits(ctx, this.traits),
+      );
     }
     return null;
   }

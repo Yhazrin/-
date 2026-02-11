@@ -1,84 +1,98 @@
-import { ActionNode, BehaviorStatus, BehaviorTree, SelectorNode } from '../ai/behaviorTree.js';
+import { ActionNode, BehaviorStatus, BehaviorTree } from '../ai/behaviorTree.js';
 import { QLearningAgent, type AgentState } from '../ai/qLearningAgent.js';
-import { normalize, sub, type Vector3 } from '../types/math.js';
+import type { SimulationContext } from '../core/types.js';
+import { distance, normalize, sub, type Vector3 } from '../types/math.js';
 import { EcosystemEntity } from './EcosystemEntity.js';
 
 export class Predator extends EcosystemEntity {
-  private aggression = 0.7 + Math.random() * 0.3;
-  private speed = 1 + Math.random() * 0.5;
-  private qAgent = new QLearningAgent();
+  private readonly learner = new QLearningAgent();
   private lastState: AgentState | null = null;
   private lastAction: string | null = null;
 
-  constructor(position: Vector3, generation = 0) {
-    super('predator', position, generation);
+  constructor(position: Vector3, generation = 0, traits?: { speed: number; efficiency: number; resilience: number }) {
+    super('predator', position, generation, traits);
   }
 
   protected createBehaviorTree(): BehaviorTree {
     return new BehaviorTree(
-      new SelectorNode([
-        new ActionNode((_, ecosystem) => {
-          const state = this.toState();
-          const actions = ['hunt', 'search', 'rest'];
+      new ActionNode((_, ctx) => {
+        const actions = ['hunt', 'search', 'rest'];
+        const state = this.makeState(ctx);
 
-          if (this.lastState && this.lastAction) {
-            const reward = this.rewardSignal(ecosystem);
-            this.qAgent.update(this.lastState, this.lastAction, reward, state, actions);
-            this.qAgent.decayExploration();
+        if (this.lastState && this.lastAction) {
+          const reward = this.reward(ctx);
+          this.learner.update(this.lastState, this.lastAction, reward, state, actions);
+          this.learner.decayExploration();
+        }
+
+        const action = this.learner.chooseAction(state, actions, () => ctx.random.next());
+        this.lastState = state;
+        this.lastAction = action;
+
+        if (action === 'hunt') {
+          const prey = ctx.manager.findNearestPrey(this.position, 15);
+          if (!prey) return BehaviorStatus.FAILURE;
+          const dir = sub(prey.position, this.position);
+          const d = distance(prey.position, this.position);
+          if (d < 1.8) {
+            prey.health -= 22 * this.traits.resilience;
+            this.energy += 12 * this.traits.efficiency;
+            return BehaviorStatus.SUCCESS;
           }
-
-          const action = this.qAgent.chooseAction(state, actions);
-          this.lastState = state;
-          this.lastAction = action;
-
-          if (action === 'hunt') {
-            const prey = ecosystem.findNearestPrey(this.position, 15);
-            if (!prey) return BehaviorStatus.FAILURE;
-            const direction = sub(prey.position, this.position);
-            const dist = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-            if (dist < 2) {
-              prey.health -= 20 * this.aggression;
-              this.energy = Math.min(100, this.energy + 10);
-              return BehaviorStatus.SUCCESS;
-            }
-            this.velocity = normalize(direction);
-            this.velocity.x *= this.speed;
-            this.velocity.z *= this.speed;
-            return BehaviorStatus.RUNNING;
-          }
-
-          if (action === 'search') {
-            if (Math.random() < 0.1) {
-              this.velocity = { x: (Math.random() - 0.5) * this.speed, y: 0, z: (Math.random() - 0.5) * this.speed };
-            }
-            return BehaviorStatus.RUNNING;
-          }
-
-          this.energy = Math.min(100, this.energy + 0.4);
-          this.velocity = { x: 0, y: 0, z: 0 };
+          this.velocity = normalize(dir);
+          this.velocity.x *= this.traits.speed * 1.2;
+          this.velocity.z *= this.traits.speed * 1.2;
           return BehaviorStatus.RUNNING;
-        }),
-      ]),
+        }
+
+        if (action === 'search') {
+          if (ctx.random.next() < 0.2) {
+            this.velocity = { x: ctx.random.range(-1, 1) * this.traits.speed, y: 0, z: ctx.random.range(-1, 1) * this.traits.speed };
+          }
+          return BehaviorStatus.RUNNING;
+        }
+
+        this.energy += 0.5 * this.traits.efficiency;
+        this.velocity = { x: 0, y: 0, z: 0 };
+        return BehaviorStatus.RUNNING;
+      }),
     );
   }
 
-  reproduce(): Predator | null {
-    if (this.energy > 80 && this.age > 10) {
-      this.energy -= 40;
-      return new Predator({ x: this.position.x + (Math.random() - 0.5) * 3, y: 0, z: this.position.z + (Math.random() - 0.5) * 3 }, this.generation + 1);
+  override update(ctx: SimulationContext): void {
+    super.update(ctx);
+    this.energy -= ctx.delta * 0.35 * ctx.manager.getHints().predatorEnergyDrain * ctx.environment.predatorDrainMultiplier;
+  }
+
+  reproduce(ctx: SimulationContext): Predator | null {
+    if (this.energy > 84 && this.age > 12) {
+      this.energy -= 42;
+      return new Predator(
+        { x: this.position.x + ctx.random.range(-2.5, 2.5), y: 0, z: this.position.z + ctx.random.range(-2.5, 2.5) },
+        this.generation + 1,
+        this.mutateTraits(ctx, this.traits),
+      );
     }
     return null;
   }
 
-  private toState(): AgentState {
-    return { x: this.position.x, z: this.position.z, health: this.health, energy: this.energy };
+  private makeState(ctx: SimulationContext): AgentState {
+    const prey = ctx.manager.findNearestPrey(this.position, 20);
+    const d = prey ? distance(this.position, prey.position) : 20;
+    return {
+      x: this.position.x,
+      z: this.position.z,
+      health: this.health,
+      energy: this.energy,
+      nearestPreyDistanceBucket: Math.floor(d / 2),
+    };
   }
 
-  private rewardSignal(ecosystem: { findNearestPrey: (pos: Vector3, range: number) => EcosystemEntity | null }): number {
-    let reward = 0.1 + this.energy * 0.01 + this.health * 0.005;
-    const nearby = ecosystem.findNearestPrey(this.position, 4);
-    if (nearby && nearby.health < 50) reward += 2;
-    if (this.energy < 20) reward -= 1;
-    return reward;
+  private reward(ctx: SimulationContext): number {
+    let r = 0.1 + this.energy * 0.01 + this.health * 0.006;
+    const prey = ctx.manager.findNearestPrey(this.position, 3);
+    if (prey) r += 1.4;
+    if (this.energy < 18) r -= 1.6;
+    return r;
   }
 }

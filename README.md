@@ -1,95 +1,59 @@
-# Monument Valley 风格长期生态模拟框架
+# Monument Valley 风格长期生态模拟框架（持续开发版）
 
-这是一个 **TypeScript 生态模拟框架**，用于实现你提出的「3D WebGL 纪念碑谷风格 AI 模拟生态系统」的核心执行内核：
+这个仓库提供一个**长期运行、可调优、任务队列驱动**的生态模拟内核，便于后续接入 Three.js/WebGL 渲染层。
 
-- 任务队列驱动（每个生命周期阶段都进入 Queue）
-- 行为树 + Q-Learning 生物行为
-- 长期运行调优钩子（Optimizer）
-- 自动化测试覆盖（Vitest + 覆盖率）
+## 当前能力
 
-> 当前仓库聚焦“可长期演化的模拟内核”，渲染层（Three.js/WebGL UI）可以在此基础上扩展接入。
+- ✅ 生命周期任务队列（按优先级调度）
+- ✅ 行为树（Selector/Sequence/Condition/Action）
+- ✅ Q-Learning 捕食者（探索-利用 + 衰减）
+- ✅ 环境循环（昼夜 + 四季）
+- ✅ 遗传特征与变异（speed/efficiency/resilience）
+- ✅ 自动调优器（种群压力驱动）
+- ✅ 长时运行 Runtime + Tick 历史报告
+- ✅ 无外部测试依赖（Node 内置 test runner）
 
 ## 快速开始
 
 ```bash
-npm install
-npm test
 npm run build
+npm test
+npm run test:coverage
 ```
 
-## 目录结构
+> `test:coverage` 会输出 V8 原始覆盖数据到 `.coverage/`，适合 CI 后处理。
 
-```text
-src/
-├── ai/
-│   ├── behaviorTree.ts
-│   └── qLearningAgent.ts
-├── core/
-│   ├── EcosystemManager.ts
-│   ├── Optimizer.ts
-│   ├── SimulationRuntime.ts
-│   └── TaskQueue.ts
-├── entities/
-│   ├── EcosystemEntity.ts
-│   ├── Plant.ts
-│   ├── Predator.ts
-│   └── Neutral.ts
-├── visual/
-│   └── designSystem.ts
-└── types/
-    └── math.ts
+## 任务队列生命周期
 
-tests/
-└── *.test.ts
+每个 tick 固定执行如下队列任务（优先级从高到低）：
+
+1. `entities:update`
+2. `entities:reproduce`
+3. `entities:cleanup`
+4. `environment:spawn-energy`
+5. `system:optimize`
+
+该顺序确保模拟具有稳定可解释性，并支持长周期实验复现。
+
+## 可复现实验（Deterministic）
+
+通过 `seed` 初始化 `EcosystemManager`，可得到确定性初始分布与随机行为序列，便于调参与回归测试。
+
+## 示例
+
+```ts
+import { SimulationRuntime } from './dist/index.js';
+
+const runtime = new SimulationRuntime();
+runtime.bootstrap({ plants: 10, predators: 4, neutrals: 8, seed: 42 });
+const history = runtime.run({ delta: 1 / 30, maxSteps: 3600 });
+
+console.log(history.at(-1));
 ```
 
-## 设计要点
+## 后续建议（下一阶段）
 
-### 1) 任务队列执行
-
-`EcosystemManager` 每个 tick 会把以下任务按优先级入队并执行：
-
-1. `update-entities`
-2. `handle-reproduction`
-3. `handle-deaths`
-4. `spawn-energy`
-5. `optimize`
-
-这保证了你要求的“每个任务队列方式执行”。
-
-### 2) 行为系统
-
-- `BehaviorTree` 提供 `Selector/Sequence/Condition/Action` 节点
-- `Predator` 内置 `QLearningAgent`，在 `hunt/search/rest` 间进行探索和利用
-- `Plant` 与 `Neutral` 使用行为树驱动生长与社交/探索
-
-### 3) 自动调优
-
-`EcosystemOptimizer` 读取当前统计数据并给出调优建议：
-
-- `spawnPlantBoost`
-- `predatorEnergyDecayMultiplier`
-- `neutralCuriosityBoost`
-
-并在每个生命周期周期自动更新，支撑“不断调优”。
-
-### 4) 测试策略
-
-已覆盖：
-
-- 任务队列优先级执行
-- Q-Learning 值更新
-- 行为树组合语义
-- 生态系统初始化/更新/增删实体
-- Runtime 批量执行
-
-## 下一步接入建议（WebGL 层）
-
-1. 在前端项目中引用本框架的 `EcosystemManager` 和 `SimulationRuntime`。
-2. 用 Three.js Mesh 映射实体类型：
-   - Predator → Pyramid/Cone
-   - Plant → Sphere
-   - Neutral → Cube
-3. 每帧读取实体状态同步到场景节点。
-4. 引入你的 Morandi 调色板与自定义 shader 材质。
-
+1. 将 `EcosystemManager` 状态绑定到 Three.js 实体池（InstancedMesh）。
+2. 根据 `season` 和 `lightIntensity` 驱动 shader uniform。
+3. 增加事件总线（出生/死亡/捕食）用于 UI 时间线与统计面板。
+4. 引入空间分区（Uniform Grid / BVH）优化近邻搜索。

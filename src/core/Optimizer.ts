@@ -2,18 +2,19 @@ import type { EcosystemStats } from './EcosystemManager.js';
 
 export interface OptimizationHints {
   spawnPlantBoost: number;
-  predatorEnergyDecayMultiplier: number;
-  neutralCuriosityBoost: number;
+  predatorEnergyDrain: number;
+  neutralSocialBias: number;
 }
 
 export class EcosystemOptimizer {
   tune(stats: EcosystemStats): OptimizationHints {
-    const predatorPressure = stats.predatorCount === 0 ? 0 : stats.predatorCount / Math.max(stats.plantCount + stats.neutralCount, 1);
+    const prey = Math.max(1, stats.plantCount + stats.neutralCount);
+    const pressure = stats.predatorCount / prey;
 
     return {
-      spawnPlantBoost: predatorPressure > 0.7 ? 2 : 1,
-      predatorEnergyDecayMultiplier: predatorPressure > 1 ? 1.25 : 1,
-      neutralCuriosityBoost: stats.totalEntities < 12 ? 1.2 : 1,
+      spawnPlantBoost: pressure > 0.6 ? 2 : 1,
+      predatorEnergyDrain: pressure > 1.0 ? 0.8 : 1,
+      neutralSocialBias: stats.totalEntities < 12 ? 1.2 : 1,
     };
   }
 }

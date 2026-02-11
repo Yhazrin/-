@@ -1,12 +1,16 @@
-import { distance, vec3, type Vector3 } from '../types/math.js';
-import type { EntityType, EcosystemEntity } from '../entities/EcosystemEntity.js';
-import { Predator } from '../entities/Predator.js';
-import { Plant } from '../entities/Plant.js';
-import { Neutral } from '../entities/Neutral.js';
-import { TaskQueue } from './TaskQueue.js';
+import { EnvironmentController, type EnvironmentState } from './Environment.js';
 import { EcosystemOptimizer, type OptimizationHints } from './Optimizer.js';
+import { SeededRandom } from './Random.js';
+import { TaskQueue } from './TaskQueue.js';
+import type { TickReport } from './types.js';
+import type { EntityType, EcosystemEntity } from '../entities/EcosystemEntity.js';
+import { Plant } from '../entities/Plant.js';
+import { Predator } from '../entities/Predator.js';
+import { Neutral } from '../entities/Neutral.js';
+import { distance, vec3, type Vector3 } from '../types/math.js';
 
 export interface EcosystemStats {
+  tick: number;
   totalEntities: number;
   predatorCount: number;
   plantCount: number;
@@ -14,51 +18,53 @@ export interface EcosystemStats {
   avgGeneration: number;
   avgHealth: number;
   avgEnergy: number;
+  season: string;
   queueDepth: number;
+}
+
+export interface EcosystemInit {
+  plants: number;
+  predators: number;
+  neutrals: number;
+  seed?: number;
 }
 
 export class EcosystemManager {
   private entities: EcosystemEntity[] = [];
-  private time = 0;
   private readonly queue = new TaskQueue();
   private readonly optimizer = new EcosystemOptimizer();
-  private hints: OptimizationHints = {
-    spawnPlantBoost: 1,
-    predatorEnergyDecayMultiplier: 1,
-    neutralCuriosityBoost: 1,
-  };
+  private readonly environmentController = new EnvironmentController();
+  private random = new SeededRandom(42);
+  private hints: OptimizationHints = { spawnPlantBoost: 1, predatorEnergyDrain: 1, neutralSocialBias: 1 };
+  private tickCount = 0;
+  private environment: EnvironmentState = this.environmentController.tick(0);
+  private bornThisTick = 0;
+  private diedThisTick = 0;
 
-  initialize(seed = { plants: 5, predators: 3, neutrals: 4 }): void {
+  initialize(init: EcosystemInit = { plants: 6, predators: 3, neutrals: 5, seed: 42 }): void {
     this.entities = [];
-    for (let i = 0; i < seed.plants; i += 1) this.addEntity(new Plant(this.randomPosition(40)));
-    for (let i = 0; i < seed.predators; i += 1) this.addEntity(new Predator(this.randomPosition(40)));
-    for (let i = 0; i < seed.neutrals; i += 1) this.addEntity(new Neutral(this.randomPosition(40)));
+    this.tickCount = 0;
+    this.random = new SeededRandom(init.seed ?? 42);
+    for (let i = 0; i < init.plants; i += 1) this.entities.push(new Plant(this.randomPosition(40)));
+    for (let i = 0; i < init.predators; i += 1) this.entities.push(new Predator(this.randomPosition(40)));
+    for (let i = 0; i < init.neutrals; i += 1) this.entities.push(new Neutral(this.randomPosition(40)));
   }
 
-  update(delta: number): void {
-    this.time += delta;
-    this.scheduleLifecycleTasks(delta);
-    this.queue.drain(8);
-  }
+  update(delta: number): TickReport {
+    this.tickCount += 1;
+    this.bornThisTick = 0;
+    this.diedThisTick = 0;
+    this.environment = this.environmentController.tick(delta);
 
-  addEntityAtPosition(position: Vector3, type: EntityType): void {
-    if (type === 'plant') this.addEntity(new Plant(position));
-    if (type === 'predator') this.addEntity(new Predator(position));
-    if (type === 'neutral') this.addEntity(new Neutral(position));
-  }
+    const context = { manager: this, random: this.random, environment: this.environment, delta };
+    this.queue.enqueue({ id: 'entities:update', priority: 100, run: () => this.entities.forEach((e) => e.update(context)) });
+    this.queue.enqueue({ id: 'entities:reproduce', priority: 80, run: () => this.handleReproduction(context) });
+    this.queue.enqueue({ id: 'entities:cleanup', priority: 70, run: () => this.handleDeaths() });
+    this.queue.enqueue({ id: 'environment:spawn-energy', priority: 60, run: () => this.spawnEnergy() });
+    this.queue.enqueue({ id: 'system:optimize', priority: 50, run: () => this.optimize() });
 
-  removeEntityAtPosition(position: Vector3, range = 2): void {
-    this.entities = this.entities.filter((entity) => distance(entity.position, position) > range);
-  }
-
-  findNearestPrey(position: Vector3, range: number): EcosystemEntity | null {
-    const candidates = this.entities.filter((e) => (e.type === 'plant' || e.type === 'neutral') && distance(e.position, position) < range);
-    if (candidates.length === 0) return null;
-    return candidates.sort((a, b) => distance(a.position, position) - distance(b.position, position))[0] ?? null;
-  }
-
-  findNearbyEntities(position: Vector3, range: number, type?: EntityType): EcosystemEntity[] {
-    return this.entities.filter((e) => (!type || e.type === type) && distance(e.position, position) < range);
+    const executed = this.queue.drain(8);
+    return { tick: this.tickCount, executedTasks: executed, born: this.bornThisTick, died: this.diedThisTick, total: this.entities.length };
   }
 
   getStats(): EcosystemStats {
@@ -66,57 +72,68 @@ export class EcosystemManager {
     const predatorCount = this.entities.filter((e) => e.type === 'predator').length;
     const plantCount = this.entities.filter((e) => e.type === 'plant').length;
     const neutralCount = this.entities.filter((e) => e.type === 'neutral').length;
-    const avgGeneration = total === 0 ? 0 : this.entities.reduce((sum, e) => sum + e.generation, 0) / total;
-    const avgHealth = total === 0 ? 0 : this.entities.reduce((sum, e) => sum + e.health, 0) / total;
-    const avgEnergy = total === 0 ? 0 : this.entities.reduce((sum, e) => sum + e.energy, 0) / total;
 
-    return { totalEntities: total, predatorCount, plantCount, neutralCount, avgGeneration, avgHealth, avgEnergy, queueDepth: this.queue.size() };
+    return {
+      tick: this.tickCount,
+      totalEntities: total,
+      predatorCount,
+      plantCount,
+      neutralCount,
+      avgGeneration: total ? this.entities.reduce((s, e) => s + e.generation, 0) / total : 0,
+      avgHealth: total ? this.entities.reduce((s, e) => s + e.health, 0) / total : 0,
+      avgEnergy: total ? this.entities.reduce((s, e) => s + e.energy, 0) / total : 0,
+      season: this.environment.season,
+      queueDepth: this.queue.size(),
+    };
   }
 
-  getOptimizationHints(): OptimizationHints {
-    return this.hints;
+  getHints(): OptimizationHints { return this.hints; }
+
+  addEntityAtPosition(position: Vector3, type: EntityType): void {
+    if (type === 'plant') this.entities.push(new Plant(position));
+    if (type === 'predator') this.entities.push(new Predator(position));
+    if (type === 'neutral') this.entities.push(new Neutral(position));
   }
 
-  private addEntity(entity: EcosystemEntity): void {
-    this.entities.push(entity);
+  removeEntityAtPosition(position: Vector3, range = 2): void {
+    const before = this.entities.length;
+    this.entities = this.entities.filter((e) => distance(e.position, position) > range);
+    this.diedThisTick += before - this.entities.length;
   }
 
-  private scheduleLifecycleTasks(delta: number): void {
-    this.queue.enqueue({ id: 'update-entities', priority: 100, run: () => this.updateEntities(delta) });
-    this.queue.enqueue({ id: 'handle-reproduction', priority: 80, run: () => this.handleReproduction() });
-    this.queue.enqueue({ id: 'handle-deaths', priority: 70, run: () => this.handleDeaths() });
-    this.queue.enqueue({ id: 'spawn-energy', priority: 60, run: () => this.spawnEnergySource() });
-    this.queue.enqueue({ id: 'optimize', priority: 50, run: () => this.optimize() });
+  findNearestPrey(position: Vector3, range: number): EcosystemEntity | null {
+    const prey = this.entities.filter((e) => (e.type === 'plant' || e.type === 'neutral') && distance(e.position, position) <= range);
+    if (!prey.length) return null;
+    return prey.reduce((best, current) => (distance(current.position, position) < distance(best.position, position) ? current : best), prey[0]!);
   }
 
-  private updateEntities(delta: number): void {
-    this.entities.forEach((entity) => {
-      entity.update(delta, this);
-      if (entity.type === 'predator') {
-        entity.energy -= delta * 0.2 * this.hints.predatorEnergyDecayMultiplier;
-      }
-    });
+  findNearby(position: Vector3, range: number, type?: EntityType): EcosystemEntity[] {
+    return this.entities.filter((e) => (!type || e.type === type) && distance(position, e.position) <= range);
   }
 
-  private handleReproduction(): void {
+  private handleReproduction(context: { manager: EcosystemManager; random: SeededRandom; environment: EnvironmentState; delta: number }): void {
     const newborns: EcosystemEntity[] = [];
     for (const entity of this.entities) {
-      const offspring = entity.reproduce();
-      if (offspring) newborns.push(offspring);
+      const child = entity.reproduce(context);
+      if (child) newborns.push(child);
     }
-    newborns.forEach((n) => this.entities.push(n));
+    this.bornThisTick += newborns.length;
+    this.entities.push(...newborns);
   }
 
   private handleDeaths(): void {
-    this.entities = this.entities.filter((entity) => !entity.isDead());
+    const before = this.entities.length;
+    this.entities = this.entities.filter((e) => !e.isDead());
+    this.diedThisTick += before - this.entities.length;
   }
 
-  private spawnEnergySource(): void {
-    const tick = Math.floor(this.time);
-    if (tick % 10 === 0 && tick !== Math.floor(this.time - 0.016)) {
-      const bursts = this.hints.spawnPlantBoost;
-      for (let i = 0; i < bursts; i += 1) {
-        if (this.entities.length < 120) this.entities.push(new Plant(this.randomPosition(40)));
+  private spawnEnergy(): void {
+    if (this.tickCount % 120 !== 0) return;
+    const bursts = this.hints.spawnPlantBoost;
+    for (let i = 0; i < bursts; i += 1) {
+      if (this.entities.length < 250) {
+        this.entities.push(new Plant(this.randomPosition(40)));
+        this.bornThisTick += 1;
       }
     }
   }
@@ -126,6 +143,6 @@ export class EcosystemManager {
   }
 
   private randomPosition(spread: number): Vector3 {
-    return vec3((Math.random() - 0.5) * spread, 0, (Math.random() - 0.5) * spread);
+    return vec3(this.random.range(-spread / 2, spread / 2), 0, this.random.range(-spread / 2, spread / 2));
   }
 }

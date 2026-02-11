@@ -1,17 +1,13 @@
-export interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
-}
+export interface Vector3 { x: number; y: number; z: number }
 
 export const vec3 = (x = 0, y = 0, z = 0): Vector3 => ({ x, y, z });
-
-export const add = (a: Vector3, b: Vector3): Vector3 => vec3(a.x + b.x, a.y + b.y, a.z + b.z);
-export const sub = (a: Vector3, b: Vector3): Vector3 => vec3(a.x - b.x, a.y - b.y, a.z - b.z);
-export const mul = (a: Vector3, scalar: number): Vector3 => vec3(a.x * scalar, a.y * scalar, a.z * scalar);
-export const length = (a: Vector3): number => Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
-export const normalize = (a: Vector3): Vector3 => {
-  const len = length(a);
-  return len === 0 ? vec3(0, 0, 0) : mul(a, 1 / len);
+export const add = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+export const sub = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+export const scale = (v: Vector3, s: number): Vector3 => ({ x: v.x * s, y: v.y * s, z: v.z * s });
+export const length = (v: Vector3): number => Math.hypot(v.x, v.y, v.z);
+export const normalize = (v: Vector3): Vector3 => {
+  const len = length(v);
+  return len === 0 ? vec3() : scale(v, 1 / len);
 };
 export const distance = (a: Vector3, b: Vector3): number => length(sub(a, b));
+export const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
