@@ -8,6 +8,7 @@ export interface OffscreenCanvasLike {
 
 export type WorkerRequest =
   | { type: 'init'; payload: { canvas?: OffscreenCanvasLike; options?: Record<string, unknown> } }
+  | { type: 'resize'; payload: { width: number; height: number } }
   | { type: 'bootstrap'; payload: { plants: number; predators: number; neutrals: number; seed?: number } }
   | { type: 'step'; payload?: { delta?: number } }
   | { type: 'run'; payload?: { delta?: number; maxSteps?: number } }
@@ -16,6 +17,7 @@ export type WorkerRequest =
 
 export type WorkerResponse =
   | { type: 'inited'; payload: { acceptedCanvas: boolean } }
+  | { type: 'resized'; payload: { width: number; height: number } }
   | { type: 'frame'; payload: RenderFrame }
   | { type: 'checkpoint'; payload: RuntimeCheckpoint }
   | { type: 'run:done'; payload: { steps: number } }

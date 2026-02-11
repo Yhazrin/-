@@ -1,6 +1,7 @@
 import { SimulationRuntime } from './SimulationRuntime.js';
 import { WorkerPoolRunner } from './tuning/WorkerPoolRunner.js';
 import { ExperimentTracker } from './tuning/ExperimentTracker.js';
+import type { ThreadedWorkerPoolRunner } from './tuning/ThreadedWorkerPoolRunner.js';
 import type { RuntimeTuningConfig } from './config.js';
 
 export interface TuningCandidate {
@@ -13,6 +14,7 @@ export interface TuningRunConfig {
   steps: number;
   delta?: number;
   concurrency?: number;
+  threadedPoolFactory?: (candidate: TuningCandidate, config: TuningRunConfig) => ThreadedWorkerPoolRunner<number, SeedOutcome>;
 }
 
 export interface TuningResult {
@@ -37,9 +39,12 @@ export class AutoTuner {
     const results: TuningResult[] = [];
 
     for (const candidate of candidates) {
-      const outcomes = await new WorkerPoolRunner(config.concurrency ?? 4).run(config.seeds, async (seed) =>
-        this.evaluateCandidateSeed(candidate, seed, config),
-      );
+      const threadedRunner = config.threadedPoolFactory?.(candidate, config);
+      const outcomes = threadedRunner
+        ? await threadedRunner.run(config.seeds)
+        : await new WorkerPoolRunner(config.concurrency ?? 4).run(config.seeds, async (seed) =>
+            this.evaluateCandidateSeed(candidate, seed, config),
+          );
 
       const n = outcomes.length || 1;
       const total = outcomes.reduce(

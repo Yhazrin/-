@@ -69,3 +69,13 @@ export * from './gameplay/QuestSystem.js';
 export * from './core/replay/ReplayChecksum.js';
 
 export * from './core/replay/IncrementalReplayStore.js';
+
+export * from './core/replay/ReplayPersistence.js';
+
+export * from './core/tuning/ThreadedWorkerPoolRunner.js';
+
+export * from './ui/ProfilingPanel.js';
+
+export * from './ui/QuestPanel.js';
+
+export * from './webgl/worker/threeSimulationWorker.js';

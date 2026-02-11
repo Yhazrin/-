@@ -135,3 +135,30 @@ npm run test:coverage
 - **P2 玩法与知识性增强**：
   - ✅ 已完成 ClimateEventEngine + InsightEngine + QuestSystem（可解释任务原型）
   - ⏳ 待完成前端任务面板和引导系统
+
+
+
+## 本轮补齐项（你要求的缺失部分）
+
+### P0：真实 Worker + OffscreenCanvas + Three.js 壳层联调
+- 新增 `threeSimulationWorker` 浏览器 worker 绑定入口（可直接绑定 `self`）。
+- `WorkerProtocol` 增加 `resize` 消息，支持主线程到 worker 的尺寸与 transfer 后画布控制。
+- `SimulationWorkerHost/Runtime` 完整支持 `init/resize/bootstrap/step/run/checkpoint/stop`。
+- `ThreeShell` 支持 worker canvas 初始化、resize 同步与单适配器复用。
+
+### P1：Profiling UI 与报警阈值
+- 新增 `ui/ProfilingPanel` 控制器 + 渲染接口，输出可直接挂载前端 UI 的 ViewModel。
+- AlertEngine 已集成到面板层，形成可视化前的告警数据管线。
+
+### P1：Replay 校验与增量持久化
+- 新增 `ReplayPersistenceService` + `FileReplayStorageAdapter` + `RemoteReplayStorageAdapter`。
+- 支持增量块 flush / restore，补齐文件系统与远端存储写入适配接口。
+
+### P2：AutoTuner worker 池 + 实验追踪
+- 新增 `ThreadedWorkerPoolRunner`（长生命周期 worker 工人池执行器）。
+- `AutoTuner` 增加 `threadedPoolFactory` 可注入真实 worker 池执行。
+- `ExperimentTracker` 继续提供结果记录、Top 排名与按候选过滤。
+
+### P2：玩法与知识性增强（任务系统 + 可解释提示）
+- 新增 `ui/QuestPanel` 控制器，连接 `QuestSystem` 输出任务面板模型和下一步知识提示。
+- 支持已完成/未完成任务统计与引导文案输出。

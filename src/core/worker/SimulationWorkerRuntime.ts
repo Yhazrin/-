@@ -1,5 +1,5 @@
 import { SimulationRuntime } from '../SimulationRuntime.js';
-import type { WorkerRequest, WorkerResponse } from './WorkerProtocol.js';
+import type { OffscreenCanvasLike, WorkerRequest, WorkerResponse } from './WorkerProtocol.js';
 
 export interface WorkerRuntimePort {
   postMessage(message: WorkerResponse): void;
@@ -12,6 +12,7 @@ export interface WorkerRuntimePort {
 export class SimulationWorkerRuntime {
   private readonly runtime = new SimulationRuntime();
   private readonly port: WorkerRuntimePort;
+  private canvas: OffscreenCanvasLike | null = null;
 
   constructor(port: WorkerRuntimePort) {
     this.port = port;
@@ -23,7 +24,17 @@ export class SimulationWorkerRuntime {
   handle(message: WorkerRequest): void {
     try {
       if (message.type === 'init') {
-        this.port.postMessage({ type: 'inited', payload: { acceptedCanvas: Boolean(message.payload.canvas) } });
+        this.canvas = message.payload.canvas ?? null;
+        this.port.postMessage({ type: 'inited', payload: { acceptedCanvas: Boolean(this.canvas) } });
+        return;
+      }
+
+      if (message.type === 'resize') {
+        if (this.canvas) {
+          this.canvas.width = message.payload.width;
+          this.canvas.height = message.payload.height;
+        }
+        this.port.postMessage({ type: 'resized', payload: message.payload });
         return;
       }
 

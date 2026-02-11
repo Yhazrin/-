@@ -1,6 +1,7 @@
 import { SimulationRuntime } from '../core/SimulationRuntime.js';
 import { createSimulationWorker, type WorkerGlobalLike } from '../core/worker/createSimulationWorker.js';
 import { SimulationWorkerHost } from '../core/worker/SimulationWorkerHost.js';
+import type { OffscreenCanvasLike } from '../core/worker/WorkerProtocol.js';
 import { ThreeAdapter } from './ThreeAdapter.js';
 import type { InstanceWriteTarget } from './ThreeAdapter.js';
 
@@ -8,6 +9,7 @@ export interface ThreeShellOptions {
   useWorker?: boolean;
   worker?: { postMessage: (msg: unknown) => void; onmessage: ((e: { data: unknown }) => void) | null };
   workerScopeFactory?: () => WorkerGlobalLike;
+  canvas?: OffscreenCanvasLike;
   targets: {
     predator: InstanceWriteTarget;
     neutral: InstanceWriteTarget;
@@ -23,9 +25,11 @@ export class ThreeShell {
   private readonly runtime: SimulationRuntime | null;
   private readonly host: SimulationWorkerHost | null;
   private readonly stepDelta: number;
+  private readonly adapter: ThreeAdapter;
 
   constructor(private readonly options: ThreeShellOptions) {
     this.stepDelta = options.stepDelta ?? 1 / 30;
+    this.adapter = new ThreeAdapter({ targets: options.targets });
 
     if (options.useWorker) {
       const scope = options.workerScopeFactory?.();
@@ -34,14 +38,13 @@ export class ThreeShell {
       const workerLike = options.worker as never;
       if (!workerLike) throw new Error('Worker mode requires `worker` transport');
       this.host = new SimulationWorkerHost(workerLike, {
-        onFrame: (frame) => {
-          new ThreeAdapter({ targets: options.targets }).onFrame(frame);
-        },
+        onFrame: (frame) => this.adapter.onFrame(frame),
       });
+      this.host.init({ canvas: options.canvas });
       this.runtime = null;
     } else {
       this.runtime = new SimulationRuntime();
-      this.runtime.getRenderBridge().register(new ThreeAdapter({ targets: options.targets }));
+      this.runtime.getRenderBridge().register(this.adapter);
       this.host = null;
     }
   }
@@ -49,6 +52,14 @@ export class ThreeShell {
   bootstrap(seed = { plants: 8, predators: 4, neutrals: 6, seed: 42 }): void {
     if (this.runtime) this.runtime.bootstrap(seed);
     if (this.host) this.host.bootstrap(seed);
+  }
+
+  resize(width: number, height: number): void {
+    if (this.options.canvas) {
+      this.options.canvas.width = width;
+      this.options.canvas.height = height;
+    }
+    this.host?.resize(width, height);
   }
 
   step(): void {
