@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monument Valley Ecosystem Demo</title>
+    <style>
+      body { margin: 0; background:#0b1020; color:#e5e7eb; font-family: system-ui, sans-serif; }
+      .wrap { display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px; }
+      canvas { border:1px solid #334155; border-radius:10px; background:#111827; }
+      .tips { font-size:13px; opacity:0.9; }
+      button { background:#1d4ed8; color:white; border:none; border-radius:8px; padding:8px 12px; cursor:pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>生态仿真可运行 Demo（Canvas2D）</h2>
+      <canvas id="eco" width="960" height="540"></canvas>
+      <div>
+        <button id="restart">重置种群</button>
+      </div>
+      <div class="tips">运行方式：先 npm run build，再在仓库根目录执行 python3 -m http.server 4173，访问 /demo/</div>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

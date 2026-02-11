@@ -162,3 +162,20 @@ npm run test:coverage
 ### P2：玩法与知识性增强（任务系统 + 可解释提示）
 - 新增 `ui/QuestPanel` 控制器，连接 `QuestSystem` 输出任务面板模型和下一步知识提示。
 - 支持已完成/未完成任务统计与引导文案输出。
+
+
+## 可运行 Demo（新增）
+
+已提供一个浏览器可直接运行的 Canvas2D Demo：
+
+```bash
+npm run build
+python3 -m http.server 4173
+# 打开 http://localhost:4173/demo/
+```
+
+Demo 入口文件：
+- `demo/index.html`
+- `demo/main.js`
+
+该 Demo 使用 `SimulationRuntime + RenderBridge + Canvas2DAdapter` 实时渲染种群演化，可用于功能演示与联调前验证。
