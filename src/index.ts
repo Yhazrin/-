@@ -59,3 +59,13 @@ export * from './core/ProfilingMonitor.js';
 export * from './core/replay/ReplayCatalog.js';
 
 export * from './core/worker/createSimulationWorker.js';
+
+export * from './core/tuning/WorkerPoolRunner.js';
+
+export * from './core/tuning/ExperimentTracker.js';
+
+export * from './gameplay/QuestSystem.js';
+
+export * from './core/replay/ReplayChecksum.js';
+
+export * from './core/replay/IncrementalReplayStore.js';

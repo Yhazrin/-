@@ -1,4 +1,6 @@
 import { SimulationRuntime } from './SimulationRuntime.js';
+import { WorkerPoolRunner } from './tuning/WorkerPoolRunner.js';
+import { ExperimentTracker } from './tuning/ExperimentTracker.js';
 import type { RuntimeTuningConfig } from './config.js';
 
 export interface TuningCandidate {
@@ -29,11 +31,13 @@ interface SeedOutcome {
 }
 
 export class AutoTuner {
+  private readonly tracker = new ExperimentTracker();
+
   async rank(candidates: TuningCandidate[], config: TuningRunConfig): Promise<TuningResult[]> {
     const results: TuningResult[] = [];
 
     for (const candidate of candidates) {
-      const outcomes = await this.runByConcurrency(config.seeds, config.concurrency ?? 4, async (seed) =>
+      const outcomes = await new WorkerPoolRunner(config.concurrency ?? 4).run(config.seeds, async (seed) =>
         this.evaluateCandidateSeed(candidate, seed, config),
       );
 
@@ -48,16 +52,33 @@ export class AutoTuner {
         { score: 0, avgEntities: 0, stability: 0, perfPenalty: 0 },
       );
 
-      results.push({
+      const result: TuningResult = {
         candidate,
         score: total.score / n,
         avgEntities: total.avgEntities / n,
         stability: total.stability / n,
         perfPenalty: total.perfPenalty / n,
-      });
+      };
+      results.push(result);
     }
 
-    return results.sort((a, b) => b.score - a.score);
+    const sorted = results.sort((a, b) => b.score - a.score);
+    sorted.forEach((res, idx) => {
+      this.tracker.add({
+        id: `run_${Date.now()}_${idx}`,
+        createdAt: Date.now(),
+        candidateName: res.candidate.name,
+        seed: -1,
+        score: res.score,
+        details: { avgEntities: res.avgEntities, stability: res.stability, perfPenalty: res.perfPenalty },
+      });
+    });
+
+    return sorted;
+  }
+
+  experiments() {
+    return this.tracker.list();
   }
 
   private async evaluateCandidateSeed(candidate: TuningCandidate, seed: number, config: TuningRunConfig): Promise<SeedOutcome> {
@@ -76,23 +97,6 @@ export class AutoTuner {
     if (last.total <= 0) score -= 30;
 
     return { score, avgEntities, stability: 100 - volatility, perfPenalty };
-  }
-
-  private async runByConcurrency<T, R>(items: T[], concurrency: number, task: (item: T) => Promise<R>): Promise<R[]> {
-    const safeConcurrency = Math.max(1, concurrency);
-    const out: R[] = [];
-    let cursor = 0;
-
-    const worker = async () => {
-      while (cursor < items.length) {
-        const index = cursor;
-        cursor += 1;
-        out[index] = await task(items[index]!);
-      }
-    };
-
-    await Promise.all(Array.from({ length: Math.min(safeConcurrency, items.length) }, () => worker()));
-    return out;
   }
 
   private volatility(series: number[]): number {

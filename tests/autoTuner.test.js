@@ -16,4 +16,5 @@ test('AutoTuner ranks candidates', async () => {
 
   assert.equal(results.length, 2);
   assert.ok(results[0].score >= results[1].score);
+  assert.ok(tuner.experiments().length >= 2);
 });

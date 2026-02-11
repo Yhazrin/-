@@ -112,3 +112,26 @@ npm run test:coverage
 3. **P1**：Replay 校验与增量持久化
 4. **P2**：AutoTuner worker 池 + 实验追踪
 5. **P2**：玩法与知识性增强（任务系统 + 可解释提示）
+
+
+## 路线图执行进度（按你要求顺序）
+
+- **P0 Worker + OffscreenCanvas + Three.js 壳层联调**：
+  - ✅ 已完成协议、host、runtime、createSimulationWorker 绑定入口
+  - ⏳ 待完成真实浏览器 worker 文件与 transfer 控制的最终联调
+
+- **P1 Profiling UI 与报警阈值**：
+  - ✅ 已完成 ProfilingDashboard + ProfilingMonitor + AlertEngine（引擎层）
+  - ⏳ 待完成前端可视化 UI 面板
+
+- **P1 Replay 校验与增量持久化**：
+  - ✅ 已完成 BinaryReplayCodec + BinaryReplayStream + ReplayChecksum + IncrementalReplayStore + ReplayCatalog
+  - ⏳ 待完成文件系统/远端存储写入适配
+
+- **P2 AutoTuner worker 池 + 实验追踪**：
+  - ✅ 已完成 WorkerPoolRunner + ExperimentTracker + AutoTuner 并发批跑
+  - ⏳ 待完成真实 worker 进程池化执行
+
+- **P2 玩法与知识性增强**：
+  - ✅ 已完成 ClimateEventEngine + InsightEngine + QuestSystem（可解释任务原型）
+  - ⏳ 待完成前端任务面板和引导系统
