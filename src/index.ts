@@ -37,3 +37,15 @@ export * from './core/ClimateEvents.js';
 export * from './webgl/RenderPolicies.js';
 
 export * from './webgl/Culling.js';
+
+export * from './core/replay/BinaryReplay.js';
+
+export * from './core/worker/WorkerProtocol.js';
+
+export * from './core/worker/SimulationWorkerHost.js';
+
+export * from './core/ProfilingDashboard.js';
+
+export * from './core/AutoTuner.js';
+
+export * from './core/InsightEngine.js';

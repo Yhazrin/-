@@ -19,4 +19,9 @@ test('FrameRecorder stores and exports frames', () => {
 
   assert.equal(recorder.list().length, 2);
   assert.ok(recorder.exportJSON().includes('frames'));
+
+  const binary = recorder.exportBinary();
+  const restored = new FrameRecorder();
+  restored.importBinary(binary);
+  assert.equal(restored.list().length, 2);
 });

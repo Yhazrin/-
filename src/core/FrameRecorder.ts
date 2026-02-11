@@ -1,3 +1,4 @@
+import { BinaryReplayCodec } from './replay/BinaryReplay.js';
 import type { RenderFrame } from './renderTypes.js';
 
 export interface RecordedFrame {
@@ -10,6 +11,7 @@ export interface RecordedFrame {
 
 export class FrameRecorder {
   private readonly frames: RecordedFrame[] = [];
+  private readonly codec = new BinaryReplayCodec();
 
   constructor(private readonly maxFrames = 36000) {}
 
@@ -41,6 +43,15 @@ export class FrameRecorder {
 
   exportJSON(): string {
     return JSON.stringify({ version: '1.0.0', frames: this.frames }, null, 2);
+  }
+
+  exportBinary(): Uint8Array {
+    return this.codec.encode(this.frames);
+  }
+
+  importBinary(data: Uint8Array): void {
+    this.frames.length = 0;
+    this.frames.push(...this.codec.decode(data));
   }
 
   clear(): void {
