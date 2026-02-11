@@ -11,6 +11,9 @@ export * from './core/TaskQueue.js';
 export * from './core/Optimizer.js';
 export * from './core/EcosystemManager.js';
 export * from './core/SimulationRuntime.js';
+export * from './core/Metrics.js';
+export * from './core/FixedStepRunner.js';
+export * from './core/config.js';
 
 export * from './ai/behaviorTree.js';
 export * from './ai/qLearningAgent.js';

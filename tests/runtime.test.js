@@ -14,9 +14,11 @@ test('SimulationRuntime can run long batches and checkpoint', () => {
   const checkpoint = runtime.checkpoint(20);
   assert.equal(checkpoint.timelineTail.length <= 20, true);
   assert.equal(checkpoint.report.tick, history.at(-1).tick);
+  assert.ok(checkpoint.metrics.totalSteps >= 600);
 
   const exported = runtime.exportCheckpointJSON(10);
   assert.ok(exported.includes('checkpoint'));
+  assert.ok(exported.includes('config'));
 });
 
 test('SimulationRuntime step and pause control', () => {
@@ -31,7 +33,6 @@ test('SimulationRuntime step and pause control', () => {
   assert.ok(r2.tick > r1.tick);
 });
 
-
 test('SimulationRuntime render bridge receives frames on step', () => {
   const runtime = new SimulationRuntime();
   runtime.bootstrap({ plants: 2, predators: 1, neutrals: 1, seed: 9 });
@@ -44,4 +45,16 @@ test('SimulationRuntime render bridge receives frames on step', () => {
   off();
 
   assert.deepEqual(ticks, [1, 2]);
+});
+
+test('SimulationRuntime supports real-time ingestion and history cap', () => {
+  const runtime = new SimulationRuntime(undefined, { maxHistorySize: 100, fixedDelta: 0.1, maxCatchUpSteps: 4 });
+  runtime.bootstrap({ plants: 3, predators: 1, neutrals: 2, seed: 5 });
+
+  const reports = runtime.ingestRealTime(0.65);
+  assert.equal(reports.length, 4);
+  assert.ok(runtime.getMetrics().totalDroppedSeconds > 0);
+
+  runtime.run({ delta: 0.1, maxSteps: 10 });
+  assert.equal(runtime.getHistory().length, 14);
 });
