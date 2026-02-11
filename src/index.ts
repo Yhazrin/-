@@ -53,3 +53,9 @@ export * from './core/InsightEngine.js';
 export * from './core/replay/BinaryReplayStream.js';
 
 export * from './core/worker/SimulationWorkerRuntime.js';
+
+export * from './core/ProfilingMonitor.js';
+
+export * from './core/replay/ReplayCatalog.js';
+
+export * from './core/worker/createSimulationWorker.js';

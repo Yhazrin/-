@@ -7,10 +7,10 @@
 - 稳定仿真内核（任务队列、行为树、Q-learning、季节环境、气候事件）
 - 渲染桥接（RenderBridge / ThreeAdapter / InstancedTarget / 渲染策略）
 - 运行时工程化（固定步长、参数强校验、指标统计、容错隔离）
-- 回放分析（timeline 回放、帧录制、二进制 replay）
+- 回放分析（timeline 回放、帧录制、二进制 replay、分块 replay）
 - 自动调参（多 seed 批跑排名，支持并发）
-- 端到端 profiling 仪表模型
-- Worker + OffscreenCanvas 协议与主机/运行时实现
+- 端到端 profiling（评分器 + 时间序列 monitor）
+- Worker + OffscreenCanvas 协议、host 与 runtime
 - 生态知识解读（InsightEngine）
 
 ## 快速开始
@@ -28,16 +28,19 @@ npm run test:coverage
 - `WorkerProtocol`：线程协议
 - `SimulationWorkerHost`：主线程控制器
 - `SimulationWorkerRuntime`：worker 内运行时消息处理器
+- `createSimulationWorker(scope)`：真实 worker 全局绑定入口
 
 ### 二进制 Replay
 
 - `BinaryReplayCodec`：单块二进制编码/解码
 - `BinaryReplayStream`：分块编码/解码
 - `FrameRecorder`：`exportBinary()` / `importBinary()`
+- `ReplayCatalog`：回放元数据管理（标签/排序/删除）
 
 ### 端到端 Profiling
 
 - `ProfilingDashboard`：score/status/bottlenecks/recommendations
+- `ProfilingMonitor`：时间序列采样、趋势聚合、图表序列输出
 
 ### 自动调参批跑
 
@@ -50,8 +53,8 @@ npm run test:coverage
 
 ## 接下来（更高级）
 
-1. 浏览器真实 Worker 入口脚本（绑定 `onmessage` 到 `SimulationWorkerRuntime`）
-2. OffscreenCanvas 真正渲染器（非 Like）与 Three.js 同步
-3. 分块 replay 流式落盘与增量读取
-4. Profiling UI（实时曲线 + bottleneck drill-down）
-5. AutoTuner worker 池并行加速
+1. 真正浏览器 Worker 脚本（`self.onmessage` + transferable 对象）
+2. OffscreenCanvas 真渲染实现与 Three.js 主场景联动
+3. replay 增量压缩与分段校验（CRC）
+4. profiling 可视化面板（多图层 drill-down）
+5. AutoTuner worker 池并行化执行器
