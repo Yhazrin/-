@@ -66,6 +66,16 @@ npm run test:coverage
 3. 每帧调用 `runtime.step(delta)`，在 `onFrame` 更新 transform/color。
 4. 用 `EventBus` 追加 UI 面板（出生、死亡、季节变化）。
 
+
+### Three.js 适配器（已开始）
+
+已提供可落地的接入类：
+
+- `ThreeAdapter`：将 `RenderFrame` 按实体类型分发到 predator/neutral/plant 三组目标
+- `ThreeInstancedTarget`：把实体写入 `InstancedMesh-like` 对象（`setMatrixAt/setColorAt`）
+
+这意味着你现在只需要在前端项目中提供真正的 Three.js `InstancedMesh`，即可完成桥接。
+
 ## 示例
 
 ```ts

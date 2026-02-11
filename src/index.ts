@@ -21,3 +21,6 @@ export * from './entities/Neutral.js';
 export * from './entities/Predator.js';
 
 export * from './visual/designSystem.js';
+
+export * from './webgl/ThreeAdapter.js';
+export * from './webgl/ThreeInstancedTarget.js';
