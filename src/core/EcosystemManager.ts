@@ -5,6 +5,7 @@ import { SeededRandom } from './Random.js';
 import { SpatialGrid } from './SpatialGrid.js';
 import { TaskQueue } from './TaskQueue.js';
 import type { TickReport, TimelinePoint } from './types.js';
+import type { RenderFrame } from './renderTypes.js';
 import type { EntityType, EcosystemEntity } from '../entities/EcosystemEntity.js';
 import { Plant } from '../entities/Plant.js';
 import { Predator } from '../entities/Predator.js';
@@ -116,6 +117,24 @@ export class EcosystemManager {
   getTimeline(limit?: number): TimelinePoint[] {
     return limit ? this.timeline.slice(-limit) : [...this.timeline];
   }
+
+  exportRenderFrame(): RenderFrame {
+    const stats = this.getStats();
+    return {
+      tick: stats.tick,
+      season: stats.season,
+      avgEnergy: stats.avgEnergy,
+      avgHealth: stats.avgHealth,
+      counts: {
+        total: stats.totalEntities,
+        predators: stats.predatorCount,
+        plants: stats.plantCount,
+        neutrals: stats.neutralCount,
+      },
+      entities: this.entities.map((e) => e.toRenderSnapshot()),
+    };
+  }
+
 
   addEntityAtPosition(position: Vector3, type: EntityType): void {
     if (type === 'plant') this.addEntity(new Plant(position), 'entity:added');

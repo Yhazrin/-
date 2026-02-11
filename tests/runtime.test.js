@@ -30,3 +30,18 @@ test('SimulationRuntime step and pause control', () => {
   assert.equal(runtime.getHistory().length, 2);
   assert.ok(r2.tick > r1.tick);
 });
+
+
+test('SimulationRuntime render bridge receives frames on step', () => {
+  const runtime = new SimulationRuntime();
+  runtime.bootstrap({ plants: 2, predators: 1, neutrals: 1, seed: 9 });
+
+  const ticks = [];
+  const off = runtime.getRenderBridge().register({ onFrame: (f) => ticks.push(f.tick) });
+
+  runtime.step(1 / 30);
+  runtime.step(1 / 30);
+  off();
+
+  assert.deepEqual(ticks, [1, 2]);
+});

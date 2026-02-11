@@ -13,6 +13,7 @@
 - ✅ 空间分区索引（SpatialGrid）用于近邻查询优化
 - ✅ 事件总线（EventBus）支持观测和外部 UI/记录器接入
 - ✅ 时间序列快照（timeline）与运行时 checkpoint 导出
+- ✅ 渲染桥接层（RenderBridge + RenderFrame + RendererAdapter）
 - ✅ 无外部测试依赖（Node 内置 test runner）
 
 ## 快速开始
@@ -45,10 +46,25 @@ npm run test:coverage
 - `SimulationRuntime.run(options)`：批量推进
 - `SimulationRuntime.checkpoint(tail)`：获取当前报告 + 统计 + timeline 尾部
 - `SimulationRuntime.exportCheckpointJSON(tail)`：导出 checkpoint JSON
+- `SimulationRuntime.getRenderBridge()`：获取渲染桥接器
 
-## 可复现实验（Deterministic）
+## Three.js/WebGL 接入时机（现在就可以）
 
-通过 `seed` 初始化 `EcosystemManager`，可得到确定性初始分布与随机行为序列，便于调参与回归测试。
+你现在就可以接入渲染层，不需要再等核心能力。
+
+**建议接入条件（当前已满足）：**
+
+- 稳定 tick 管线与可预测调度（✅）
+- 可复现运行（seed）（✅）
+- 可订阅事件（✅）
+- 可直接消费渲染帧结构（✅）
+
+**建议下一步顺序：**
+
+1. 实现 `RendererAdapter`（Three.js 版本），将 `RenderFrame.entities` 映射到 InstancedMesh。
+2. 用 `type` 映射几何体（金字塔/立方体/球体）与 Morandi 颜色。
+3. 每帧调用 `runtime.step(delta)`，在 `onFrame` 更新 transform/color。
+4. 用 `EventBus` 追加 UI 面板（出生、死亡、季节变化）。
 
 ## 示例
 
@@ -57,15 +73,20 @@ import { SimulationRuntime } from './dist/index.js';
 
 const runtime = new SimulationRuntime();
 runtime.bootstrap({ plants: 10, predators: 4, neutrals: 8, seed: 42 });
-const history = runtime.run({ delta: 1 / 30, maxSteps: 3600 });
 
-console.log(history.at(-1));
-console.log(runtime.exportCheckpointJSON(120));
+runtime.getRenderBridge().register({
+  onFrame(frame) {
+    // 将 frame.entities 同步到 Three.js
+    console.log(frame.tick, frame.counts.total);
+  },
+});
+
+runtime.run({ delta: 1 / 30, maxSteps: 3600 });
 ```
 
 ## 后续建议（下一阶段）
 
-1. 将 `EventBus` 输出接入前端时间线与实体详情面板。
-2. 在渲染层使用 InstancedMesh + spatial grid 做可视化 culling。
+1. 渲染层加 InstancedMesh + GPU frustum culling。
+2. shader 接 season/dayPhase uniform 做颜色和光照细微变化。
 3. 增加灾害/气候事件 task（干旱、风暴）并映射季节参数。
 4. 增加 agent 行为策略回放（按 tick 记录动作分布）。

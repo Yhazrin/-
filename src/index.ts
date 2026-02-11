@@ -4,6 +4,8 @@ export * from './core/Random.js';
 export * from './core/Environment.js';
 export * from './core/EventBus.js';
 export * from './core/SpatialGrid.js';
+export * from './core/renderTypes.js';
+export * from './core/RenderBridge.js';
 export * from './core/types.js';
 export * from './core/TaskQueue.js';
 export * from './core/Optimizer.js';

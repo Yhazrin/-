@@ -46,6 +46,21 @@ export abstract class EcosystemEntity {
     this.energy = clamp(this.energy, 0, 100);
   }
 
+
+  toRenderSnapshot() {
+    return {
+      id: this.id,
+      type: this.type,
+      position: { ...this.position },
+      velocity: { ...this.velocity },
+      health: this.health,
+      energy: this.energy,
+      age: this.age,
+      generation: this.generation,
+      traits: { ...this.traits },
+    };
+  }
+
   isDead(): boolean {
     return this.health <= 0 || this.energy <= 0 || this.age > 180;
   }

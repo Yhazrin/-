@@ -1,4 +1,5 @@
 import { EcosystemManager, type EcosystemInit, type EcosystemStats } from './EcosystemManager.js';
+import { RenderBridge } from './RenderBridge.js';
 import type { TickReport, TimelinePoint } from './types.js';
 
 export interface RuntimeOptions {
@@ -17,9 +18,11 @@ export class SimulationRuntime {
   readonly ecosystem: EcosystemManager;
   private running = false;
   private history: TickReport[] = [];
+  private readonly renderBridge: RenderBridge;
 
   constructor(ecosystem?: EcosystemManager) {
     this.ecosystem = ecosystem ?? new EcosystemManager();
+    this.renderBridge = new RenderBridge(this.ecosystem);
   }
 
   bootstrap(init?: EcosystemInit): void {
@@ -45,6 +48,7 @@ export class SimulationRuntime {
   step(delta = 1 / 30): TickReport {
     const report = this.ecosystem.update(delta);
     this.history.push(report);
+    this.renderBridge.flush();
     return report;
   }
 
@@ -62,6 +66,9 @@ export class SimulationRuntime {
       timelineTail: this.ecosystem.getTimeline(timelineTail),
     };
   }
+
+
+  getRenderBridge(): RenderBridge { return this.renderBridge; }
 
   exportCheckpointJSON(timelineTail = 120): string {
     return JSON.stringify(
