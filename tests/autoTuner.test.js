@@ -11,6 +11,7 @@ test('AutoTuner ranks candidates', async () => {
     seeds: [1, 2],
     steps: 100,
     delta: 1 / 30,
+    concurrency: 2,
   });
 
   assert.equal(results.length, 2);
