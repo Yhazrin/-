@@ -4,6 +4,7 @@ import { EcosystemOptimizer, type OptimizationHints } from './Optimizer.js';
 import { SeededRandom } from './Random.js';
 import { SpatialGrid } from './SpatialGrid.js';
 import { TaskQueue } from './TaskQueue.js';
+import { ClimateEventEngine, type ClimateEvent } from './ClimateEvents.js';
 import type { TickReport, TimelinePoint } from './types.js';
 import type { RenderFrame } from './renderTypes.js';
 import type { EntityType, EcosystemEntity } from '../entities/EcosystemEntity.js';
@@ -39,12 +40,14 @@ export class EcosystemManager {
   private readonly environmentController = new EnvironmentController();
   private readonly spatialGrid = new SpatialGrid(8);
   private readonly timeline: TimelinePoint[] = [];
+  private readonly climate = new ClimateEventEngine();
   private random = new SeededRandom(42);
   private hints: OptimizationHints = { spawnPlantBoost: 1, predatorEnergyDrain: 1, neutralSocialBias: 1 };
   private tickCount = 0;
   private environment: EnvironmentState = this.environmentController.tick(0);
   private bornThisTick = 0;
   private diedThisTick = 0;
+  private lastClimateEvent: ClimateEvent = { type: 'none', intensity: 0 };
   readonly events = new EventBus();
 
   initialize(init: EcosystemInit = { plants: 6, predators: 3, neutrals: 5, seed: 42 }): void {
@@ -73,6 +76,7 @@ export class EcosystemManager {
     this.queue.enqueue({ id: 'entities:cleanup', priority: 70, run: () => this.handleDeaths() });
     this.queue.enqueue({ id: 'environment:spawn-energy', priority: 60, run: () => this.spawnEnergy() });
     this.queue.enqueue({ id: 'system:optimize', priority: 50, run: () => this.optimize() });
+    this.queue.enqueue({ id: 'climate:event', priority: 45, run: () => this.applyClimateEvent() });
     this.queue.enqueue({ id: 'timeline:snapshot', priority: 40, run: () => this.captureTimelinePoint() });
 
     const executed = this.queue.drain(16);
@@ -86,6 +90,7 @@ export class EcosystemManager {
       total: this.entities.length,
       season: this.environment.season,
       avgEnergy: stats.avgEnergy,
+      climateEvent: this.lastClimateEvent.type,
     };
 
     this.events.emit({ type: 'tick:completed', tick: this.tickCount, payload: report });
@@ -116,6 +121,10 @@ export class EcosystemManager {
 
   getTimeline(limit?: number): TimelinePoint[] {
     return limit ? this.timeline.slice(-limit) : [...this.timeline];
+  }
+
+  exportEnvironmentState(): EnvironmentState {
+    return { ...this.environment };
   }
 
   exportRenderFrame(): RenderFrame {
@@ -217,6 +226,40 @@ export class EcosystemManager {
 
   private optimize(): void {
     this.hints = this.optimizer.tune(this.getStats());
+  }
+
+
+  private applyClimateEvent(): void {
+    const event = this.climate.next(this.getStats());
+    this.lastClimateEvent = event;
+    if (event.type === 'none') return;
+
+    if (event.type === 'drought') {
+      for (const entity of this.entities) {
+        if (entity.type === 'plant') entity.energy = Math.max(0, entity.energy - 10 * event.intensity);
+      }
+    }
+
+    if (event.type === 'storm') {
+      for (const entity of this.entities) {
+        entity.health = Math.max(0, entity.health - 4 * event.intensity);
+      }
+    }
+
+    if (event.type === 'bloom') {
+      const spawn = Math.min(8, Math.ceil(4 * event.intensity));
+      for (let i = 0; i < spawn; i += 1) {
+        this.addEntity(new Plant(this.randomPosition(40)), 'entity:born');
+        this.bornThisTick += 1;
+      }
+      this.spatialGrid.rebuild(this.entities);
+    }
+
+    this.events.emit({
+      type: 'climate:event',
+      tick: this.tickCount,
+      payload: { climateEvent: event.type, intensity: event.intensity },
+    });
   }
 
   private captureTimelinePoint(): void {

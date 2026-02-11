@@ -17,6 +17,7 @@ export interface TickReport {
   total: number;
   season: string;
   avgEnergy: number;
+  climateEvent: string;
 }
 
 export interface TimelinePoint {

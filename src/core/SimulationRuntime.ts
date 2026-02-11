@@ -1,5 +1,7 @@
 import { EcosystemManager, type EcosystemInit, type EcosystemStats } from './EcosystemManager.js';
 import { FixedStepRunner } from './FixedStepRunner.js';
+import { FrameRecorder } from './FrameRecorder.js';
+import { TimelinePlayer } from './TimelinePlayer.js';
 import { RuntimeMetrics, type RuntimeMetricsSnapshot } from './Metrics.js';
 import { RenderBridge } from './RenderBridge.js';
 import { validateRuntimeConfig, type RuntimeTuningConfig } from './config.js';
@@ -26,6 +28,7 @@ export class SimulationRuntime {
   private readonly config: RuntimeTuningConfig;
   private readonly fixedStepRunner: FixedStepRunner;
   private readonly metrics = new RuntimeMetrics();
+  private recorder: FrameRecorder | null = null;
 
   constructor(ecosystem?: EcosystemManager, config?: Partial<RuntimeTuningConfig>) {
     this.ecosystem = ecosystem ?? new EcosystemManager();
@@ -72,7 +75,8 @@ export class SimulationRuntime {
       this.history.splice(0, this.history.length - this.config.maxHistorySize);
     }
 
-    this.renderBridge.flush();
+    const frame = this.renderBridge.flush();
+    this.recorder?.push(frame);
     const duration = performance.now() - start;
     this.metrics.recordStepDuration(duration);
     return report;
@@ -85,6 +89,10 @@ export class SimulationRuntime {
   getHistory(): TickReport[] { return [...this.history]; }
 
   getMetrics(): RuntimeMetricsSnapshot { return this.metrics.snapshot(); }
+
+  attachRecorder(recorder: FrameRecorder): void { this.recorder = recorder; }
+  detachRecorder(): void { this.recorder = null; }
+  createTimelinePlayer(limit = 2000): TimelinePlayer { return new TimelinePlayer(this.ecosystem.getTimeline(limit)); }
 
   checkpoint(timelineTail = 120): RuntimeCheckpoint {
     const report = this.history[this.history.length - 1] ?? this.ecosystem.update(0);

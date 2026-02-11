@@ -14,6 +14,7 @@ test('EcosystemManager runs queued lifecycle with spatial/timeline stages', () =
     'entities:cleanup',
     'environment:spawn-energy',
     'system:optimize',
+    'climate:event',
     'timeline:snapshot',
   ]);
 
@@ -23,6 +24,7 @@ test('EcosystemManager runs queued lifecycle with spatial/timeline stages', () =
   assert.equal(stats.queueDepth, 0);
   assert.equal(typeof report.season, 'string');
   assert.ok(Number.isFinite(report.avgEnergy));
+  assert.equal(typeof report.climateEvent, 'string');
   assert.equal(manager.getTimeline().length, 1);
 });
 

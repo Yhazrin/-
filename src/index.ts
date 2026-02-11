@@ -27,3 +27,13 @@ export * from './visual/designSystem.js';
 
 export * from './webgl/ThreeAdapter.js';
 export * from './webgl/ThreeInstancedTarget.js';
+
+export * from './core/TimelinePlayer.js';
+
+export * from './core/FrameRecorder.js';
+
+export * from './core/ClimateEvents.js';
+
+export * from './webgl/RenderPolicies.js';
+
+export * from './webgl/Culling.js';

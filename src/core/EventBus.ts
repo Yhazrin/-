@@ -4,7 +4,8 @@ export type SimulationEventType =
   | 'entity:born'
   | 'entity:died'
   | 'entity:added'
-  | 'entity:removed';
+  | 'entity:removed'
+  | 'climate:event';
 
 export interface SimulationEvent<T = unknown> {
   type: SimulationEventType;

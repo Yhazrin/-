@@ -8,7 +8,7 @@ test('SimulationRuntime can run long batches and checkpoint', () => {
   const history = runtime.run({ delta: 1 / 30, maxSteps: 600 });
 
   assert.equal(history.length, 600);
-  assert.ok(history[0].executedTasks.length >= 7);
+  assert.ok(history[0].executedTasks.length >= 8);
   assert.ok(history.at(-1).total > 0);
 
   const checkpoint = runtime.checkpoint(20);
@@ -57,4 +57,17 @@ test('SimulationRuntime supports real-time ingestion and history cap', () => {
 
   runtime.run({ delta: 0.1, maxSteps: 10 });
   assert.equal(runtime.getHistory().length, 14);
+});
+
+
+test('SimulationRuntime can attach recorder', () => {
+  const runtime = new SimulationRuntime();
+  runtime.bootstrap({ plants: 2, predators: 1, neutrals: 1, seed: 12 });
+
+  const pushed = [];
+  runtime.attachRecorder({ push: (f) => pushed.push(f), list: () => [], exportJSON: () => '', clear: () => {} });
+  runtime.step(1 / 30);
+  runtime.detachRecorder();
+
+  assert.equal(pushed.length, 1);
 });
