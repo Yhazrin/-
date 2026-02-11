@@ -1,10 +1,16 @@
-import { EcosystemManager, type EcosystemInit } from './EcosystemManager.js';
-import type { TickReport } from './types.js';
+import { EcosystemManager, type EcosystemInit, type EcosystemStats } from './EcosystemManager.js';
+import type { TickReport, TimelinePoint } from './types.js';
 
 export interface RuntimeOptions {
   delta?: number;
   maxSteps?: number;
   stopWhenExtinct?: boolean;
+}
+
+export interface RuntimeCheckpoint {
+  report: TickReport;
+  stats: EcosystemStats;
+  timelineTail: TimelinePoint[];
 }
 
 export class SimulationRuntime {
@@ -27,9 +33,8 @@ export class SimulationRuntime {
     this.running = true;
 
     for (let i = 0; i < maxSteps && this.running; i += 1) {
-      const report = this.ecosystem.update(delta);
-      this.history.push(report);
-      if (options.stopWhenExtinct && report.total === 0) {
+      this.step(delta);
+      if (options.stopWhenExtinct && this.history[this.history.length - 1]?.total === 0) {
         this.running = false;
       }
     }
@@ -37,6 +42,36 @@ export class SimulationRuntime {
     return this.history;
   }
 
+  step(delta = 1 / 30): TickReport {
+    const report = this.ecosystem.update(delta);
+    this.history.push(report);
+    return report;
+  }
+
+  pause(): void { this.running = false; }
+  resume(): void { this.running = true; }
   stop(): void { this.running = false; }
+
   getHistory(): TickReport[] { return [...this.history]; }
+
+  checkpoint(timelineTail = 120): RuntimeCheckpoint {
+    const report = this.history[this.history.length - 1] ?? this.ecosystem.update(0);
+    return {
+      report,
+      stats: this.ecosystem.getStats(),
+      timelineTail: this.ecosystem.getTimeline(timelineTail),
+    };
+  }
+
+  exportCheckpointJSON(timelineTail = 120): string {
+    return JSON.stringify(
+      {
+        version: '0.3.0',
+        createdAt: new Date().toISOString(),
+        checkpoint: this.checkpoint(timelineTail),
+      },
+      null,
+      2,
+    );
+  }
 }

@@ -10,7 +10,9 @@
 - ✅ 环境循环（昼夜 + 四季）
 - ✅ 遗传特征与变异（speed/efficiency/resilience）
 - ✅ 自动调优器（种群压力驱动）
-- ✅ 长时运行 Runtime + Tick 历史报告
+- ✅ 空间分区索引（SpatialGrid）用于近邻查询优化
+- ✅ 事件总线（EventBus）支持观测和外部 UI/记录器接入
+- ✅ 时间序列快照（timeline）与运行时 checkpoint 导出
 - ✅ 无外部测试依赖（Node 内置 test runner）
 
 ## 快速开始
@@ -28,12 +30,21 @@ npm run test:coverage
 每个 tick 固定执行如下队列任务（优先级从高到低）：
 
 1. `entities:update`
-2. `entities:reproduce`
-3. `entities:cleanup`
-4. `environment:spawn-energy`
-5. `system:optimize`
+2. `spatial:reindex`
+3. `entities:reproduce`
+4. `entities:cleanup`
+5. `environment:spawn-energy`
+6. `system:optimize`
+7. `timeline:snapshot`
 
 该顺序确保模拟具有稳定可解释性，并支持长周期实验复现。
+
+## 运行时能力
+
+- `SimulationRuntime.step(delta)`：单步推进
+- `SimulationRuntime.run(options)`：批量推进
+- `SimulationRuntime.checkpoint(tail)`：获取当前报告 + 统计 + timeline 尾部
+- `SimulationRuntime.exportCheckpointJSON(tail)`：导出 checkpoint JSON
 
 ## 可复现实验（Deterministic）
 
@@ -49,11 +60,12 @@ runtime.bootstrap({ plants: 10, predators: 4, neutrals: 8, seed: 42 });
 const history = runtime.run({ delta: 1 / 30, maxSteps: 3600 });
 
 console.log(history.at(-1));
+console.log(runtime.exportCheckpointJSON(120));
 ```
 
 ## 后续建议（下一阶段）
 
-1. 将 `EcosystemManager` 状态绑定到 Three.js 实体池（InstancedMesh）。
-2. 根据 `season` 和 `lightIntensity` 驱动 shader uniform。
-3. 增加事件总线（出生/死亡/捕食）用于 UI 时间线与统计面板。
-4. 引入空间分区（Uniform Grid / BVH）优化近邻搜索。
+1. 将 `EventBus` 输出接入前端时间线与实体详情面板。
+2. 在渲染层使用 InstancedMesh + spatial grid 做可视化 culling。
+3. 增加灾害/气候事件 task（干旱、风暴）并映射季节参数。
+4. 增加 agent 行为策略回放（按 tick 记录动作分布）。

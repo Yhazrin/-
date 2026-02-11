@@ -12,3 +12,15 @@ test('TaskQueue executes by priority', () => {
   assert.deepEqual(q.drain(), ['high', 'mid', 'low']);
   assert.deepEqual(order, ['high', 'mid', 'low']);
 });
+
+test('TaskQueue respects max drain and clear', () => {
+  const q = new TaskQueue();
+  q.enqueue({ id: 'a', priority: 3, run: () => {} });
+  q.enqueue({ id: 'b', priority: 2, run: () => {} });
+  q.enqueue({ id: 'c', priority: 1, run: () => {} });
+
+  assert.deepEqual(q.drain(2), ['a', 'b']);
+  assert.equal(q.size(), 1);
+  q.clear();
+  assert.equal(q.size(), 0);
+});
